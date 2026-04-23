@@ -11,8 +11,8 @@
   "commands": [],
   "mcpServers": {
     "scope": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/../dist/mcp/index.js"]
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-server.sh"]
     }
   }
 }
