@@ -21,7 +21,7 @@ You have access to the scope semantic search plugin. Use it proactively when you
 
 ## Workflow
 
-1. Check status with `get_indexing_status`
-2. If not indexed (or stale), run `index_codebase` first
-3. Search with descriptive natural-language queries
+1. Check status with `get_indexing_status` — always pass `path` = current working directory
+2. If not indexed (or stale), run `index_codebase` — always pass `path` = current working directory
+3. Search with `search_code` — always pass `path` = current working directory
 4. Use results to navigate to the right files and line ranges

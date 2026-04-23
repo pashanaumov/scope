@@ -171,18 +171,29 @@ export function createServer(deps: ServerDeps = {}): Server {
           properties: {
             query: { type: 'string', description: 'Search query' },
             topK: { type: 'number', description: 'Number of results (default 5)' },
+            path: { type: 'string', description: 'Project root path (defaults to auto-detected)' },
           },
         },
       },
       {
         name: 'clear_index',
         description: 'Clear the search index for the current project.',
-        inputSchema: { type: 'object' as const, properties: {} },
+        inputSchema: {
+          type: 'object' as const,
+          properties: {
+            path: { type: 'string', description: 'Project root path (defaults to auto-detected)' },
+          },
+        },
       },
       {
         name: 'get_indexing_status',
         description: 'Check whether the codebase has been indexed and when.',
-        inputSchema: { type: 'object' as const, properties: {} },
+        inputSchema: {
+          type: 'object' as const,
+          properties: {
+            path: { type: 'string', description: 'Project root path (defaults to auto-detected)' },
+          },
+        },
       },
     ],
   }));
@@ -230,7 +241,7 @@ export function createServer(deps: ServerDeps = {}): Server {
         }
 
         case 'search_code': {
-          const { query, topK } = args as { query?: string; topK?: number };
+          const { query, topK, path: pathArg } = args as { query?: string; topK?: number; path?: string };
           if (!query) {
             return {
               content: [
@@ -242,7 +253,7 @@ export function createServer(deps: ServerDeps = {}): Server {
               isError: true,
             };
           }
-          const projectPath = await detectProjectRoot();
+          const projectPath = pathArg ?? (await detectProjectRoot());
           const { idx } = await getIndexer(projectPath);
           const results = await idx.search(query, topK);
           return {
@@ -265,7 +276,8 @@ export function createServer(deps: ServerDeps = {}): Server {
         }
 
         case 'clear_index': {
-          const projectPath = await detectProjectRoot();
+          const { path: pathArg } = args as { path?: string };
+          const projectPath = pathArg ?? (await detectProjectRoot());
           const { idx } = await getIndexer(projectPath);
           await idx.clear(projectPath);
           indexer = null;
@@ -276,7 +288,8 @@ export function createServer(deps: ServerDeps = {}): Server {
         }
 
         case 'get_indexing_status': {
-          const projectPath = await detectProjectRoot();
+          const { path: pathArg } = args as { path?: string };
+          const projectPath = pathArg ?? (await detectProjectRoot());
           const cfg = currentConfig ?? (await resolveConfig(projectPath));
           const { modelReady, grammarsMissing } = await checkSetupStatus(cfg);
 
