@@ -80,6 +80,7 @@ function makeMockDeps(overrides?: Partial<ServerDeps>): ServerDeps {
     }),
     createIndexer: async () => mockIndexer as never,
     checkSetupStatus: async () => ({ modelReady: true, grammarsMissing: [] }),
+    runSetup: async () => {},
     startWatcher: () => {},
     ...overrides,
   };

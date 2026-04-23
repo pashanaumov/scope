@@ -15,6 +15,7 @@ export interface ServerDeps {
   checkSetupStatus?: (
     config: Pick<ScopeConfig, 'modelsDir' | 'grammarsDir' | 'transformersModel'>,
   ) => Promise<{ modelReady: boolean; grammarsMissing: string[] }>;
+  runSetup?: (config: ScopeConfig) => Promise<void>;
   startWatcher?: (
     projectPath: string,
     indexFn: () => Promise<void>,
@@ -69,6 +70,11 @@ async function defaultCheckSetupStatus(
   return checkSetupStatus(config);
 }
 
+async function defaultRunSetup(config: ScopeConfig): Promise<void> {
+  const { setup } = await import('../core/index.js');
+  await setup({ config });
+}
+
 function defaultStartWatcher(
   projectPath: string,
   indexFn: () => Promise<void>,
@@ -112,6 +118,7 @@ export function createServer(deps: ServerDeps = {}): Server {
     resolveConfig = defaultResolveConfig,
     createIndexer = defaultCreateIndexer,
     checkSetupStatus = defaultCheckSetupStatus,
+    runSetup = defaultRunSetup,
     startWatcher = defaultStartWatcher,
   } = deps;
 
@@ -193,6 +200,7 @@ export function createServer(deps: ServerDeps = {}): Server {
           const { path: pathArg, force } = args as { path?: string; force?: boolean };
           const projectPath = pathArg ?? (await detectProjectRoot());
           const { idx, cfg } = await getIndexer(projectPath);
+          await runSetup(cfg);
           const result = await idx.index(projectPath, undefined, force ?? false);
 
           if (cfg.watchEnabled && !watcherStarted) {
