@@ -34,11 +34,12 @@ export async function detectProjectRoot(): Promise<string> {
 
   // Walk up from cwd looking for .git — but skip plugin cache dirs to avoid
   // accidentally indexing the scope plugin itself when running as an MCP server.
+  const PLUGIN_DIR_MARKERS = ['/.claude/plugins/', '/.copilot/installed-plugins/', '/.copilot/plugins/'];
+  const isPluginDir = (p: string) => PLUGIN_DIR_MARKERS.some((m) => p.includes(m));
   let dir = process.cwd();
   while (true) {
     if (existsSync(join(dir, '.git'))) {
-      // Sanity check: don't return a path inside the Claude plugin cache
-      if (!dir.includes('/.claude/plugins/')) return dir;
+      if (!isPluginDir(dir)) return dir;
     }
     const parent = dirname(dir);
     if (parent === dir) break;
@@ -336,6 +337,7 @@ export function createServer(deps: ServerDeps = {}): Server {
                 type: 'text' as const,
                 text: JSON.stringify({
                   status: 'started',
+                  projectPath,
                   message: 'Indexing started in background. Use get_indexing_status to track progress.',
                 }),
               },
@@ -425,6 +427,7 @@ export function createServer(deps: ServerDeps = {}): Server {
               {
                 type: 'text' as const,
                 text: JSON.stringify({
+                  projectPath,
                   indexed,
                   filesCount,
                   chunksCount,

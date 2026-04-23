@@ -8,7 +8,7 @@
       "name": "scope",
       "source": "./",
       "description": "Semantic code search — index your codebase and find relevant code with hybrid vector + keyword search.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "author": {
         "name": "pashanaumov"
       }
