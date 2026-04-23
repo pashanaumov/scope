@@ -1,8 +1,7 @@
 {
   "name": "scope",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "type": "module",
-
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-strip-types --experimental-loader ./loader.mjs --test tests/*.test.ts tests/mcp/*.test.ts",

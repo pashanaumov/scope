@@ -1,18 +1,26 @@
 {
   "name": "scope",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Semantic code search for Claude Code — index your codebase and search it with hybrid vector + keyword search.",
   "author": {
     "name": "pashanaumov"
   },
   "license": "MIT",
-  "keywords": ["code-search", "semantic-search", "indexer", "mcp", "embeddings"],
+  "keywords": [
+    "code-search",
+    "semantic-search",
+    "indexer",
+    "mcp",
+    "embeddings"
+  ],
   "repository": "https://github.com/pashanaumov/scope",
   "commands": [],
   "mcpServers": {
     "scope": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-bootstrap.cjs"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/bin/mcp-bootstrap.cjs"
+      ]
     }
   }
 }

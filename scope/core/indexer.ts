@@ -121,6 +121,10 @@ export class Indexer {
       cwd: absProjectPath,
       dot: true,
       onlyFiles: true,
+      followSymbolicLinks: false,
+      ignore: [...HARD_CODED_IGNORE, ...this.config.ignorePatterns].map((p) =>
+        p.includes('/') ? p : `**/${p}/**`,
+      ),
     });
 
     const filteredPaths = rawPaths.filter((relPath) => !ig.ignores(relPath));
