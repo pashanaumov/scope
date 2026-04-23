@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -131,6 +131,24 @@ interface ActiveJob {
   completedAt: number | null;
   errorMessage: string | null;
   result: { filesIndexed: number; chunksIndexed: number; durationMs: number } | null;
+}
+
+async function persistJob(indexDir: string, job: ActiveJob): Promise<void> {
+  try {
+    await mkdir(indexDir, { recursive: true });
+    await writeFile(join(indexDir, 'job.json'), JSON.stringify(job), 'utf-8');
+  } catch {
+    // non-fatal
+  }
+}
+
+async function readPersistedJob(indexDir: string): Promise<ActiveJob | null> {
+  try {
+    const raw = await readFile(join(indexDir, 'job.json'), 'utf-8');
+    return JSON.parse(raw) as ActiveJob;
+  } catch {
+    return null;
+  }
 }
 
 export function createServer(deps: ServerDeps = {}): Server {
@@ -271,8 +289,13 @@ export function createServer(deps: ServerDeps = {}): Server {
 
           // Fire and forget — do not await
           (async () => {
+            let indexDir: string | null = null;
             try {
-              const { idx, cfg } = await getIndexer(projectPath);
+              const result_getIndexer = await getIndexer(projectPath);
+              const cfg = result_getIndexer.cfg;
+              const idx = result_getIndexer.idx;
+              indexDir = cfg.indexDir;
+              await persistJob(indexDir, job);
               await runSetup(cfg);
               job.phase = 'scan';
               const result = await idx.index(
@@ -284,6 +307,10 @@ export function createServer(deps: ServerDeps = {}): Server {
                   job.chunksTotal = progress.chunksTotal;
                   job.chunksDone = progress.chunksDone;
                   job.errors = progress.errors;
+                  // Persist progress periodically (every 100 files) — fire and forget
+                  if (progress.filesDone % 100 === 0 && indexDir) {
+                    persistJob(indexDir, job).catch(() => {});
+                  }
                 },
                 force ?? false,
               );
@@ -298,6 +325,8 @@ export function createServer(deps: ServerDeps = {}): Server {
               job.status = 'failed';
               job.completedAt = Date.now();
               job.errorMessage = String(err);
+            } finally {
+              if (indexDir) await persistJob(indexDir, job);
             }
           })();
 
@@ -389,7 +418,7 @@ export function createServer(deps: ServerDeps = {}): Server {
             // No stats.json yet — not indexed
           }
 
-          const job = activeJobs.get(projectPath) ?? null;
+          const job = activeJobs.get(projectPath) ?? (await readPersistedJob(cfg.indexDir));
 
           return {
             content: [
