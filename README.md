@@ -6,7 +6,7 @@ Semantic code search for Claude Code. Index your codebase with ONNX embeddings +
 
 ```bash
 claude plugin marketplace add pashanaumov/scope
-claude plugin install scope@marketplace
+claude plugin install scope@scope
 ```
 
 ## MCP tools
