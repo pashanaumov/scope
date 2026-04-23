@@ -1,6 +1,6 @@
 {
   "name": "scope",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Semantic code search for Claude Code — index your codebase and search it with hybrid vector + keyword search.",
   "author": {
     "name": "pashanaumov"
@@ -11,8 +11,8 @@
   "commands": [],
   "mcpServers": {
     "scope": {
-      "command": "sh",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-server.sh"]
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-bootstrap.cjs"]
     }
   }
 }
