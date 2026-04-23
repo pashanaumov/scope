@@ -1,6 +1,6 @@
 {
   "name": "scope",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Semantic code search for Claude Code — index your codebase and search it with hybrid vector + keyword search.",
   "author": {
     "name": "pashanaumov"

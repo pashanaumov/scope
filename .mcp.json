@@ -1,0 +1,6 @@
+{
+  "scope": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-bootstrap.cjs"]
+  }
+}
