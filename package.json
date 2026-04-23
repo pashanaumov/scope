@@ -2,7 +2,7 @@
   "name": "scope",
   "version": "0.1.1",
   "type": "module",
-  "main": "./dist/mcp/index.js",
+
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-strip-types --experimental-loader ./loader.mjs --test tests/*.test.ts tests/mcp/*.test.ts",
