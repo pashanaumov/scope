@@ -119,6 +119,20 @@ function defaultStartWatcher(
 // Server factory
 // ---------------------------------------------------------------------------
 
+interface ActiveJob {
+  status: 'running' | 'completed' | 'failed';
+  phase: string;
+  filesTotal: number;
+  filesDone: number;
+  chunksTotal: number;
+  chunksDone: number;
+  errors: Array<{ file: string; error: string }>;
+  startedAt: number;
+  completedAt: number | null;
+  errorMessage: string | null;
+  result: { filesIndexed: number; chunksIndexed: number; durationMs: number } | null;
+}
+
 export function createServer(deps: ServerDeps = {}): Server {
   const {
     resolveConfig = defaultResolveConfig,
@@ -138,6 +152,9 @@ export function createServer(deps: ServerDeps = {}): Server {
   let currentConfig: ScopeConfig | null = null;
   let currentProjectPath: string | null = null;
   let watcherStarted = false;
+
+  // Background job state keyed by project path
+  const activeJobs = new Map<string, ActiveJob>();
 
   async function getIndexer(projectPath: string): Promise<{ idx: Indexer; cfg: ScopeConfig }> {
     if (indexer && currentConfig && currentProjectPath === projectPath) {
@@ -216,30 +233,81 @@ export function createServer(deps: ServerDeps = {}): Server {
         case 'index_codebase': {
           const { path: pathArg, force } = args as { path?: string; force?: boolean };
           const projectPath = pathArg ?? (await detectProjectRoot());
-          const { idx, cfg } = await getIndexer(projectPath);
-          await runSetup(cfg);
-          const result = await idx.index(projectPath, undefined, force ?? false);
 
-          if (cfg.watchEnabled && !watcherStarted) {
-            startWatcher(
-              projectPath,
-              async () => {
-                await idx.index(projectPath);
-              },
-              { debounceMs: cfg.watchDebounceMs },
-            );
-            watcherStarted = true;
+          const existing = activeJobs.get(projectPath);
+          if (existing?.status === 'running') {
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({
+                    status: 'already_running',
+                    phase: existing.phase,
+                    filesTotal: existing.filesTotal,
+                    filesDone: existing.filesDone,
+                    chunksTotal: existing.chunksTotal,
+                    chunksDone: existing.chunksDone,
+                    message: 'Indexing already in progress. Use get_indexing_status to track progress.',
+                  }),
+                },
+              ],
+            };
           }
+
+          const job: ActiveJob = {
+            status: 'running',
+            phase: 'setup',
+            filesTotal: 0,
+            filesDone: 0,
+            chunksTotal: 0,
+            chunksDone: 0,
+            errors: [],
+            startedAt: Date.now(),
+            completedAt: null,
+            errorMessage: null,
+            result: null,
+          };
+          activeJobs.set(projectPath, job);
+
+          // Fire and forget — do not await
+          (async () => {
+            try {
+              const { idx, cfg } = await getIndexer(projectPath);
+              await runSetup(cfg);
+              job.phase = 'scan';
+              const result = await idx.index(
+                projectPath,
+                (progress) => {
+                  job.phase = progress.phase;
+                  job.filesTotal = progress.filesTotal;
+                  job.filesDone = progress.filesDone;
+                  job.chunksTotal = progress.chunksTotal;
+                  job.chunksDone = progress.chunksDone;
+                  job.errors = progress.errors;
+                },
+                force ?? false,
+              );
+              if (cfg.watchEnabled && !watcherStarted) {
+                startWatcher(projectPath, async () => { await idx.index(projectPath); }, { debounceMs: cfg.watchDebounceMs });
+                watcherStarted = true;
+              }
+              job.status = 'completed';
+              job.completedAt = Date.now();
+              job.result = { filesIndexed: result.filesIndexed, chunksIndexed: result.chunksIndexed, durationMs: result.durationMs };
+            } catch (err) {
+              job.status = 'failed';
+              job.completedAt = Date.now();
+              job.errorMessage = String(err);
+            }
+          })();
 
           return {
             content: [
               {
                 type: 'text' as const,
                 text: JSON.stringify({
-                  filesIndexed: result.filesIndexed,
-                  chunksIndexed: result.chunksIndexed,
-                  durationMs: result.durationMs,
-                  errors: result.errors,
+                  status: 'started',
+                  message: 'Indexing started in background. Use get_indexing_status to track progress.',
                 }),
               },
             ],
@@ -321,6 +389,8 @@ export function createServer(deps: ServerDeps = {}): Server {
             // No stats.json yet — not indexed
           }
 
+          const job = activeJobs.get(projectPath) ?? null;
+
           return {
             content: [
               {
@@ -332,6 +402,21 @@ export function createServer(deps: ServerDeps = {}): Server {
                   lastIndexedAt,
                   modelReady,
                   grammarsMissing,
+                  job: job
+                    ? {
+                        status: job.status,
+                        phase: job.phase,
+                        filesTotal: job.filesTotal,
+                        filesDone: job.filesDone,
+                        chunksTotal: job.chunksTotal,
+                        chunksDone: job.chunksDone,
+                        errors: job.errors,
+                        startedAt: job.startedAt,
+                        completedAt: job.completedAt,
+                        errorMessage: job.errorMessage,
+                        result: job.result,
+                      }
+                    : null,
                 }),
               },
             ],

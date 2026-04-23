@@ -191,16 +191,19 @@ test('get_indexing_status returns correct shape with mocked core', async () => {
     chunksCount: number;
     modelReady: boolean;
     grammarsMissing: string[];
+    job: unknown;
   };
 
   assert.ok('indexed' in status, 'missing indexed');
   assert.ok('filesCount' in status, 'missing filesCount');
   assert.ok('chunksCount' in status, 'missing chunksCount');
   assert.ok('modelReady' in status, 'missing modelReady');
+  assert.ok('job' in status, 'missing job field');
   assert.ok(Array.isArray(status.grammarsMissing), 'grammarsMissing should be array');
   assert.equal(status.modelReady, true);
   assert.deepEqual(status.grammarsMissing, ['tree-sitter-ruby.wasm']);
   assert.equal(status.indexed, false); // no index_codebase called yet
+  assert.equal(status.job, null); // no active job
 });
 
 // ---------------------------------------------------------------------------
@@ -258,8 +261,87 @@ test('watcher is not started when watchEnabled is false', async () => {
   const { client, close } = await makeTestClient(deps);
   after(close);
 
-  // Trigger index_codebase — watcher should NOT be started
   await client.callTool({ name: 'index_codebase', arguments: {} });
+  // Wait for background job to complete
+  await new Promise((r) => setTimeout(r, 200));
 
   assert.equal(watcherCalled, false, 'startWatcher should not be called when watchEnabled=false');
+});
+
+// ---------------------------------------------------------------------------
+// 8. index_codebase: returns 'started' immediately (non-blocking)
+// ---------------------------------------------------------------------------
+
+test('index_codebase returns started status immediately', async () => {
+  const { client, close } = await makeTestClient(makeMockDeps());
+  after(close);
+
+  const result = await client.callTool({ name: 'index_codebase', arguments: {} });
+  assert.ok(!result.isError);
+
+  const text = (result.content as { type: string; text: string }[])[0]?.text;
+  const body = JSON.parse(text) as { status: string; message: string };
+  assert.equal(body.status, 'started');
+  assert.ok(typeof body.message === 'string');
+});
+
+// ---------------------------------------------------------------------------
+// 9. index_codebase: returns 'already_running' if called while job in progress
+// ---------------------------------------------------------------------------
+
+test('index_codebase returns already_running when job is in progress', async () => {
+  let resolveIndex!: () => void;
+  const slowIndexer = makeMockIndexer({
+    index: async (_path) => {
+      await new Promise<void>((r) => { resolveIndex = r; });
+      return { filesIndexed: 3, chunksIndexed: 10, durationMs: 50, errors: [], filesDeleted: 0, filesUnchanged: 0 };
+    },
+  });
+  const deps = makeMockDeps({ createIndexer: async () => slowIndexer as never });
+  const { client, close } = await makeTestClient(deps);
+  after(close);
+
+  // Start first job (won't complete until resolveIndex is called)
+  await client.callTool({ name: 'index_codebase', arguments: {} });
+  // Small delay so the background job starts running
+  await new Promise((r) => setTimeout(r, 20));
+
+  // Second call should return already_running
+  const result = await client.callTool({ name: 'index_codebase', arguments: {} });
+  const text = (result.content as { type: string; text: string }[])[0]?.text;
+  const body = JSON.parse(text) as { status: string };
+  assert.equal(body.status, 'already_running');
+
+  // Unblock the first job
+  resolveIndex();
+  await new Promise((r) => setTimeout(r, 50));
+});
+
+// ---------------------------------------------------------------------------
+// 10. get_indexing_status: shows live job progress while running
+// ---------------------------------------------------------------------------
+
+test('get_indexing_status includes job field after indexing starts', async () => {
+  let resolveIndex!: () => void;
+  const slowIndexer = makeMockIndexer({
+    index: async (_path) => {
+      await new Promise<void>((r) => { resolveIndex = r; });
+      return { filesIndexed: 3, chunksIndexed: 10, durationMs: 50, errors: [], filesDeleted: 0, filesUnchanged: 0 };
+    },
+  });
+  const deps = makeMockDeps({ createIndexer: async () => slowIndexer as never });
+  const { client, close } = await makeTestClient(deps);
+  after(close);
+
+  await client.callTool({ name: 'index_codebase', arguments: {} });
+  await new Promise((r) => setTimeout(r, 20));
+
+  const result = await client.callTool({ name: 'get_indexing_status', arguments: {} });
+  const text = (result.content as { type: string; text: string }[])[0]?.text;
+  const status = JSON.parse(text) as { job: { status: string } | null };
+  assert.ok(status.job !== null, 'job should be present while running');
+  assert.equal(status.job?.status, 'running');
+
+  resolveIndex();
+  await new Promise((r) => setTimeout(r, 50));
 });
