@@ -1,0 +1,27 @@
+{
+  "name": "scope",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/mcp/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-strip-types --experimental-loader ./loader.mjs --test tests/*.test.ts tests/mcp/*.test.ts",
+    "bench": "node --experimental-strip-types ./benchmarks/benchmark.ts",
+    "csn-bench": "node --experimental-strip-types ./benchmarks/csn-benchmark.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.1.0",
+    "@lancedb/lancedb": "^0.27.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "chokidar": "^5.0.0",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.5",
+    "openai": "^6.34.0",
+    "p-limit": "^7.3.0",
+    "web-tree-sitter": "^0.26.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
