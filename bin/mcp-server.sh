@@ -4,9 +4,10 @@
 set -e
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PLUGIN_ROOT"
 
 if [ ! -d "$PLUGIN_ROOT/node_modules" ]; then
-  npm --prefix "$PLUGIN_ROOT" install --silent
+  npm install --silent
 fi
 
-exec npx --prefix "$PLUGIN_ROOT" tsx "$PLUGIN_ROOT/scope/mcp/index.ts"
+exec ./node_modules/.bin/tsx ./scope/mcp/index.ts
