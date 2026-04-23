@@ -7,7 +7,7 @@ PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PLUGIN_ROOT"
 
 if [ ! -d "$PLUGIN_ROOT/node_modules" ]; then
-  npm install --silent
+  npm ci --silent
 fi
 
 exec ./node_modules/.bin/tsx ./scope/mcp/index.ts
