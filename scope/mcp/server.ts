@@ -28,12 +28,18 @@ export interface ServerDeps {
 // ---------------------------------------------------------------------------
 
 export async function detectProjectRoot(): Promise<string> {
-  const envPath = process.env.SCOPE_PROJECT_PATH;
+  // Explicit overrides (highest priority)
+  const envPath = process.env.SCOPE_PROJECT_PATH ?? process.env.CLAUDE_PROJECT_ROOT;
   if (envPath) return envPath;
 
+  // Walk up from cwd looking for .git — but skip plugin cache dirs to avoid
+  // accidentally indexing the scope plugin itself when running as an MCP server.
   let dir = process.cwd();
   while (true) {
-    if (existsSync(join(dir, '.git'))) return dir;
+    if (existsSync(join(dir, '.git'))) {
+      // Sanity check: don't return a path inside the Claude plugin cache
+      if (!dir.includes('/.claude/plugins/')) return dir;
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
